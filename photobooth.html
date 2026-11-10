@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AestheticSnapshot 💗</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 25px 15px 45px;
+    background: #ff729c;
+    color: #fff4b3;
+    font-family: Georgia, serif;
+    text-align: center;
+}
+
+h1 {
+    font-size: 38px;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    margin-top: 5px;
+    font-size: 15px;
+}
+
+.booth {
+    max-width: 650px;
+    margin: 25px auto;
+    padding: 20px;
+    background: #f6a9ca;
+    border: 3px dashed #fff4b3;
+    border-radius: 20px;
+}
+
+.camera-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    background: #222;
+    border-radius: 12px;
+    aspect-ratio: 4 / 3;
+}
+
+video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+#heartCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#countdown {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 90px;
+    font-weight: bold;
+    color: #fff4b3;
+    text-shadow: 3px 3px 10px #000;
+    z-index: 3;
+}
+
+.filters {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0;
+}
+
+button,
+.home-button {
+    padding: 10px 15px;
+    border: 2px solid #fff4b3;
+    border-radius: 25px;
+    background: #ff729c;
+    color: #fff4b3;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+button:hover,
+button.active,
+.home-button:hover {
+    background: #fff4b3;
+    color: #e84e80;
+}
+
+button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.main-button {
+    padding: 13px 28px;
+    font-size: 17px;
+    font-weight: bold;
+    margin: 5px;
+}
+
+#photoStrip {
+    display: none;
+    max-width: 100%;
+    width: 300px;
+    margin: 25px auto 10px;
+    border: 8px solid white;
+    border-radius: 3px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+
+#downloadButton {
+    display: none;
+    margin: 15px auto;
+}
+
+#status {
+    font-size: 14px;
+    margin: 12px 0;
+}
+
+.home-link-container {
+    margin-top: 20px;
+}
+
+.home-button {
+    padding: 11px 22px;
+    font-size: 15px;
+}
+
+footer {
+    margin-top: 35px;
+    font-size: 13px;
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 30px;
+    }
+
+    .booth {
+        padding: 12px;
+    }
+
+    button {
+        font-size: 12px;
+        padding: 9px 12px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<h1>♡ AestheticSnapshot ♡</h1>
+<p class="subtitle">A little moment, captured forever.</p>
+
+<div class="booth">
+
+    <div class="camera-container">
+        <video id="camera" autoplay playsinline muted></video>
+        <canvas id="heartCanvas"></canvas>
+        <div id="countdown"></div>
+    </div>
+
+    <div class="filters">
+        <button class="filter active" data-filter="original">Original</button>
+        <button class="filter" data-filter="vintage">Vintage</button>
+        <button class="filter" data-filter="bw">B&W</button>
+        <button class="filter" data-filter="pink">Soft Pink</button>
+        <button class="filter" data-filter="warm">Warm Film</button>
+        <button class="filter" data-filter="floating">Floating Hearts 💗</button>
+    </div>
+
+    <button class="main-button" id="startButton">
+        Start Photobooth ♡
+    </button>
+
+    <p id="status">Allow camera access to get started!</p>
+
+    <img id="photoStrip" alt="Your AestheticSnapshot photo strip">
+
+    <button id="downloadButton">
+        Download My Photo Strip ♡
+    </button>
+
+    <div class="home-link-container">
+        <a href="index.html" class="home-button">
+            ♡ Back to Homepage
+        </a>
+    </div>
+
+</div>
+
+<footer>Made with ♡ and a little nostalgia.</footer>
+
+<script>
+const video = document.getElementById("camera");
+const countdown = document.getElementById("countdown");
+const startButton = document.getElementById("startButton");
+const statusText = document.getElementById("status");
+const photoStrip = document.getElementById("photoStrip");
+const downloadButton = document.getElementById("downloadButton");
+
+const heartCanvas = document.getElementById("heartCanvas");
+const heartCtx = heartCanvas.getContext("2d");
+
+let selectedFilter = "original";
+let photos = [];
+let cameraReady = false;
+let hearts = [];
+let animationStarted = false;
+
+// One reusable audio engine for mobile and desktop
+let audioContext = null;
+
+// Filter settings
+const filters = {
+    original: "none",
+    vintage: "sepia(0.55) contrast(1.1) brightness(1.05)",
+    bw: "grayscale(1) contrast(1.1)",
+    pink: "sepia(0.2) saturate(1.3) hue-rotate(315deg) brightness(1.05)",
+    warm: "sepia(0.35) saturate(1.25) contrast(1.05)",
+    floating: "none"
+};
+
+// Unlock audio through the Start button tap
+async function unlockAudio() {
+    try {
+        const AudioContextClass =
+            window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextClass) {
+            return false;
+        }
+
+        if (!audioContext) {
+            audioContext = new AudioContextClass();
+        }
+
+        if (audioContext.state === "suspended") {
+            await audioContext.resume();
+        }
+
+        return audioContext.state === "running";
+
+    } catch (error) {
+        console.error("Audio initialization failed:", error);
+        return false;
+    }
+}
+
+// Camera
+async function startCamera() {
+    try {
+        if (!navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Camera access is unavailable.");
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: false
+        });
+
+        video.srcObject = stream;
+        await video.play();
+
+        cameraReady = true;
+
+        resizeHeartCanvas();
+        initializeHearts();
+
+        statusText.textContent =
+            "Camera ready! Choose a filter and have fun ♡";
+
+        if (!animationStarted) {
+            animationStarted = true;
+            animateHearts();
+        }
+
+    } catch (error) {
+        statusText.textContent =
+            "Please allow camera access to use AestheticSnapshot.";
+
+        console.error(error);
+    }
+}
+
+// Resize heart overlay
+function resizeHeartCanvas() {
+    if (!video.videoWidth || !video.videoHeight) return;
+
+    heartCanvas.width = video.videoWidth;
+    heartCanvas.height = video.videoHeight;
+}
+
+// Initialize floating hearts
+function initializeHearts() {
+    hearts = [];
+
+    const colors = [
+        "#ff1744",
+        "#ff4d79",
+        "#e91e63",
+        "#ff668c",
+        "#d50045"
+    ];
+
+    for (let i = 0; i < 14; i++) {
+        hearts.push({
+            x: Math.random() * heartCanvas.width,
+            y: Math.random() * heartCanvas.height,
+            size: 13 + Math.random() * 19,
+            speed: 0.25 + Math.random() * 0.65,
+            drift: (Math.random() - 0.5) * 0.6,
+            rotation: (Math.random() - 0.5) * 0.35,
+            rotationSpeed: (Math.random() - 0.5) * 0.008,
+            phase: Math.random() * Math.PI * 2,
+            color: colors[Math.floor(Math.random() * colors.length)]
+        });
+    }
+}
+
+// Draw glossy heart
+function drawHeart(ctx, heart, time = 0) {
+    ctx.save();
+
+    ctx.translate(heart.x, heart.y);
+
+    const bob = Math.sin(
+        time * 0.0015 + (heart.phase || 0)
+    ) * 3;
+
+    ctx.translate(0, bob);
+    ctx.rotate(heart.rotation || 0);
+
+    const s = heart.size;
+    ctx.scale(s / 30, s / 30);
+
+    const path = new Path2D();
+
+    path.moveTo(0, 10);
+    path.bezierCurveTo(-35, -12, -20, -38, 0, -20);
+    path.bezierCurveTo(20, -38, 35, -12, 0, 10);
+
+    const gradient = ctx.createLinearGradient(-10, -35, 12, 12);
+
+    gradient.addColorStop(0, "#ffffff");
+    gradient.addColorStop(0.18, "#ffb5cc");
+    gradient.addColorStop(0.42, heart.color || "#ff4d79");
+    gradient.addColorStop(1, "#a50035");
+
+    ctx.fillStyle = gradient;
+    ctx.shadowColor = "rgba(100, 0, 35, 0.3)";
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 3;
+
+    ctx.fill(path);
+
+    ctx.shadowColor = "transparent";
+
+    ctx.beginPath();
+    ctx.ellipse(-7, -19, 5, 2.5, -0.5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// Animate floating hearts
+function animateHearts(time = 0) {
+    heartCtx.clearRect(
+        0,
+        0,
+        heartCanvas.width,
+        heartCanvas.height
+    );
+
+    if (selectedFilter === "floating" && cameraReady) {
+        hearts.forEach(heart => {
+
+            drawHeart(heartCtx, heart, time);
+
+            heart.y -= heart.speed;
+            heart.x += heart.drift;
+            heart.rotation += heart.rotationSpeed;
+
+            if (heart.y < -50) {
+                heart.y = heartCanvas.height + 40;
+                heart.x = Math.random() * heartCanvas.width;
+            }
+
+            if (heart.x < -40) {
+                heart.x = heartCanvas.width + 30;
+            }
+
+            if (heart.x > heartCanvas.width + 40) {
+                heart.x = -30;
+            }
+        });
+    }
+
+    requestAnimationFrame(animateHearts);
+}
+
+// Select filters
+document.querySelectorAll(".filter").forEach(button => {
+    button.addEventListener("click", () => {
+
+        document.querySelectorAll(".filter").forEach(btn => {
+            btn.classList.remove("active");
+        });
+
+        button.classList.add("active");
+
+        selectedFilter = button.dataset.filter;
+
+        video.style.filter = filters[selectedFilter];
+
+        heartCanvas.style.display =
+            selectedFilter === "floating" ? "block" : "none";
+
+        if (selectedFilter === "floating") {
+            statusText.textContent =
+                "A little floating heart magic! 💗";
+        } else {
+            statusText.textContent =
+                "Filter selected! Ready when you are ♡";
+        }
+    });
+});
+
+// Countdown beep using the reusable audio engine
+function playBeep() {
+    if (!audioContext || audioContext.state !== "running") {
+        return;
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = 700;
+
+    const now = audioContext.currentTime;
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        now + 0.2
+    );
+
+    oscillator.start(now);
+    oscillator.stop(now + 0.2);
+}
+
+// Shutter sound using the same audio engine
+function playShutter() {
+    if (!audioContext || audioContext.state !== "running") {
+        return;
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    oscillator.type = "square";
+
+    const now = audioContext.currentTime;
+
+    oscillator.frequency.setValueAtTime(1200, now);
+    oscillator.frequency.exponentialRampToValueAtTime(
+        150,
+        now + 0.12
+    );
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        now + 0.15
+    );
+
+    oscillator.start(now);
+    oscillator.stop(now + 0.15);
+}
+
+// Capture photo
+function capturePhoto() {
+    const canvas = document.createElement("canvas");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+
+    ctx.filter = filters[selectedFilter];
+
+    ctx.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.filter = "none";
+
+    if (selectedFilter === "floating") {
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        hearts.forEach(heart => {
+            const mirroredHeart = {
+                ...heart,
+                x: canvas.width - heart.x
+            };
+
+            drawHeart(
+                ctx,
+                mirroredHeart,
+                performance.now()
+            );
+        });
+    }
+
+    return canvas.toDataURL("image/png");
+}
+
+// Wait helper
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Take four photos
+async function takePhotos() {
+
+    if (!cameraReady) {
+        await startCamera();
+
+        if (!cameraReady) return;
+    }
+
+    startButton.disabled = true;
+    startButton.textContent = "Taking photos...";
+
+    photos = [];
+
+    photoStrip.style.display = "none";
+    downloadButton.style.display = "none";
+
+    for (let i = 0; i < 4; i++) {
+
+        statusText.textContent =
+            `Getting photo ${i + 1} of 4 ready!`;
+
+        for (let number = 4; number >= 1; number--) {
+            countdown.textContent = number;
+
+            playBeep();
+
+            await wait(1000);
+        }
+
+        countdown.textContent = "♡";
+
+        playShutter();
+
+        photos.push(capturePhoto());
+
+        await wait(500);
+
+        countdown.textContent = "";
+    }
+
+    createPhotoStrip();
+
+    statusText.textContent =
+        "Your photo strip is ready! ♡";
+
+    startButton.disabled = false;
+    startButton.textContent = "Take Another Strip ♡";
+}
+
+// Create photo strip
+function createPhotoStrip() {
+
+    const imageWidth = 600;
+    const padding = 24;
+    const gap = 12;
+
+    const imageHeight =
+        imageWidth * (video.videoHeight / video.videoWidth);
+
+    const stripCanvas = document.createElement("canvas");
+
+    stripCanvas.width = imageWidth + padding * 2;
+
+    stripCanvas.height =
+        imageHeight * 4 + gap * 3 + padding * 2;
+
+    const ctx = stripCanvas.getContext("2d");
+
+    ctx.fillStyle = "#ffffff";
+
+    ctx.fillRect(
+        0,
+        0,
+        stripCanvas.width,
+        stripCanvas.height
+    );
+
+    let loaded = 0;
+
+    photos.forEach((photo, index) => {
+
+        const image = new Image();
+
+        image.onload = () => {
+
+            const y =
+                padding + index * (imageHeight + gap);
+
+            ctx.drawImage(
+                image,
+                padding,
+                y,
+                imageWidth,
+                imageHeight
+            );
+
+            loaded++;
+
+            if (loaded === 4) {
+                photoStrip.src =
+                    stripCanvas.toDataURL("image/png");
+
+                photoStrip.style.display = "block";
+                downloadButton.style.display = "block";
+            }
+        };
+
+        image.src = photo;
+    });
+}
+
+// Download photo strip
+downloadButton.addEventListener("click", () => {
+
+    const link = document.createElement("a");
+
+    link.download = "AestheticSnapshot-PhotoStrip.png";
+    link.href = photoStrip.src;
+
+    link.click();
+});
+
+// Start button: unlock audio BEFORE starting the photo sequence
+startButton.addEventListener("click", async () => {
+
+    const audioReady = await unlockAudio();
+
+    if (!audioReady) {
+        statusText.textContent =
+            "Camera ready! If sound is unavailable, check your phone's sound settings.";
+    }
+
+    await takePhotos();
+});
+
+// Start camera
+startCamera();
+
+</script>
+
+</body>
+</html>
